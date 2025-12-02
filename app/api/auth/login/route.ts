@@ -1,11 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
-import { cookies } from "next/headers"; // <--- 1. Import this
-import jwt from "jsonwebtoken"; // <--- 2. Import this (npm install jsonwebtoken @types/jsonwebtoken)
+import { cookies } from "next/headers";
+import { SignJWT } from "jose"; // <--- CHANGED: Using 'jose' for signing
 
-
-const secret = process.env.JWT_SECRET; // This now reads from your .env file
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -15,7 +13,7 @@ export async function POST(req: Request) {
     const password = body.password;
 
     if (!lookupValue || !password) {
-      return NextResponse.json({ error: "Missing email/username or password" }, { status: 400 });
+      return NextResponse.json({ error: "Missing fields" }, { status: 400 });
     }
 
     const user = await prisma.user.findFirst({
@@ -37,32 +35,38 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
     }
 
-    // --- 3. GENERATE TOKEN (The Missing Link) ---
-    // Ensure JWT_SECRET matches what your middleware uses
-    const secret = process.env.JWT_SECRET || "fallback-secret-key-change-this";
-    const token = jwt.sign(
-      { userId: user.id, username: user.username }, 
-      secret, 
-      { expiresIn: "1d" }
-    );
-
-    // --- 4. SET COOKIE (Crucial Step) ---
-    // Note: In Next.js 15/16, cookies() is async
-    const cookieStore = await cookies();
+    // --- JWT GENERATION WITH JOSE (Edge Compatible) ---
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      console.error("JWT_SECRET is missing!");
+      return NextResponse.json({ error: "Server Configuration Error" }, { status: 500 });
+    }
     
-    cookieStore.set("token", token, { // Name must match middleware ('token')
+    // Convert secret to Uint8Array (Required by jose)
+    const secretKey = new TextEncoder().encode(secret);
+    
+    // Create the token exactly how middleware expects it
+    const token = await new SignJWT({ userId: user.id, username: user.username })
+      .setProtectedHeader({ alg: 'HS256' })
+      .setIssuedAt()
+      .setExpirationTime('1d')
+      .sign(secretKey);
+
+    // --- SET COOKIE ---
+    const cookieStore = await cookies();
+    cookieStore.set("token", token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production", // False on localhost
+      secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
       maxAge: 60 * 60 * 24, // 1 day
       path: "/",
     });
 
-    console.log("Login Success! Cookie set.");
+    console.log("Login Success! Token generated with jose.");
     return NextResponse.json({ success: true, user: { id: user.id, name: user.fullName } });
 
   } catch (error) {
-    console.error("Server Error:", error);
+    console.error("Login Error:", error);
     return NextResponse.json({ error: "Server Error" }, { status: 500 });
   }
 }
