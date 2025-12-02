@@ -3,9 +3,61 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [formData, setFormData] = useState({
+    username: "",
+    password: "",
+  });
+  
+  const router = useRouter();
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    });
+    setError(""); // Clear error when user types
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.error || "Login failed");
+        setLoading(false);
+        return;
+      }
+
+      // Login successful logic
+      console.log("Login successful, redirecting..."); // Debug log
+      
+      // 1. Refresh the router to ensure middleware sees the new cookie
+      router.refresh(); 
+      
+      // 2. Then push to dashboard
+      router.push("/dashboard");
+      
+    } catch (err) {
+      setError("Something went wrong. Please try again.");
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="flex min-h-screen bg-white">
@@ -15,25 +67,42 @@ export default function Login() {
           <h1 className="text-4xl font-bold text-black mb-2">Welcome back!</h1>
           <p className="text-gray-600 mb-8">
             Simplify your workflow and boost your productivity<br />
-            with <span className="font-semibold">Aminuteman's App</span>. Get started for free.
+            with <span className="font-semibold">Aminuteman App</span>. Get started for free.
           </p>
 
-          <form className="space-y-4">
+          {error && (
+            <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+              {error}
+            </div>
+          )}
+
+          <form className="space-y-4" onSubmit={handleSubmit}>
             <input
               type="text"
+              name="username"
               placeholder="Username"
-              className="w-full px-6 py-4 border border-gray-300 rounded-full focus:outline-none focus:border-gray-400 bg-white text-black placeholder:text-gray-400"
+              value={formData.username}
+              onChange={handleChange}
+              required
+              disabled={loading}
+              className="w-full px-6 py-4 border border-gray-300 rounded-full focus:outline-none focus:border-gray-400 bg-white text-black placeholder:text-gray-400 disabled:opacity-50"
             />
             
             <div className="relative">
               <input
                 type={showPassword ? "text" : "password"}
+                name="password"
                 placeholder="Password"
-                className="w-full px-6 py-4 border border-gray-300 rounded-full focus:outline-none focus:border-gray-400 bg-white text-black placeholder:text-gray-400"
+                value={formData.password}
+                onChange={handleChange}
+                required
+                disabled={loading}
+                className="w-full px-6 py-4 border border-gray-300 rounded-full focus:outline-none focus:border-gray-400 bg-white text-black placeholder:text-gray-400 disabled:opacity-50"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
+                disabled={loading}
                 className="absolute right-6 top-1/2 -translate-y-1/2 text-gray-400"
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -60,9 +129,10 @@ export default function Login() {
 
             <button
               type="submit"
-              className="w-full bg-black text-white py-4 rounded-full font-semibold hover:bg-gray-800 transition-colors"
+              disabled={loading}
+              className="w-full bg-black text-white py-4 rounded-full font-semibold hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Login
+              {loading ? "Logging in..." : "Login"}
             </button>
           </form>
 
@@ -116,7 +186,7 @@ export default function Login() {
           </div>
           <h2 className="text-2xl text-black">
             Make your work easier and organized<br />
-            with <span className="font-bold">Aminuteman's App</span>
+            with <span className="font-bold">Aminuteman App</span>
           </h2>
         </div>
       </div>

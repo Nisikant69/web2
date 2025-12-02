@@ -6,6 +6,53 @@ import { useState } from "react";
 
 export default function Register() {
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    username: "",
+    password: "",
+  });
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+
+    try {
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.error || "Registration failed");
+        return;
+      }
+
+      // Success - clear form and show message
+      setFormData({ name: "", email: "", username: "", password: "" });
+      alert("Registration successful! Please log in.");
+      // Optionally redirect to login
+      // window.location.href = "/authenticate/login";
+    } catch (err) {
+      setError("An error occurred. Please try again.");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="flex min-h-screen bg-white">
@@ -15,32 +62,54 @@ export default function Register() {
           <h1 className="text-4xl font-bold text-black mb-2">Create Account!</h1>
           <p className="text-gray-600 mb-8">
             Simplify your workflow and boost your productivity<br />
-            with <span className="font-semibold">Aminuteman's App</span>. Get started for free.
+            with <span className="font-semibold">Aminuteman App</span>. Get started for free.
           </p>
 
-          <form className="space-y-4">
+          <form className="space-y-4" onSubmit={handleSubmit}>
+            {error && (
+              <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+                {error}
+              </div>
+            )}
+            
             <input
               type="text"
+              name="name"
               placeholder="Full Name"
+              value={formData.name}
+              onChange={handleChange}
+              required
               className="w-full px-6 py-4 border border-gray-300 rounded-full focus:outline-none focus:border-gray-400 bg-white text-black placeholder:text-gray-400"
             />
             
             <input
               type="email"
+              name="email"
               placeholder="Email"
+              value={formData.email}
+              onChange={handleChange}
+              required
               className="w-full px-6 py-4 border border-gray-300 rounded-full focus:outline-none focus:border-gray-400 bg-white text-black placeholder:text-gray-400"
             />
             
             <input
               type="text"
+              name="username"
               placeholder="Username"
+              value={formData.username}
+              onChange={handleChange}
+              required
               className="w-full px-6 py-4 border border-gray-300 rounded-full focus:outline-none focus:border-gray-400 bg-white text-black placeholder:text-gray-400"
             />
             
             <div className="relative">
               <input
                 type={showPassword ? "text" : "password"}
+                name="password"
                 placeholder="Password"
+                value={formData.password}
+                onChange={handleChange}
+                required
                 className="w-full px-6 py-4 border border-gray-300 rounded-full focus:outline-none focus:border-gray-400 bg-white text-black placeholder:text-gray-400"
               />
               <button
@@ -66,9 +135,10 @@ export default function Register() {
 
             <button
               type="submit"
-              className="w-full bg-black text-white py-4 rounded-full font-semibold hover:bg-gray-800 transition-colors"
+              disabled={loading}
+              className="w-full bg-black text-white py-4 rounded-full font-semibold hover:bg-gray-800 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
-              Register
+              {loading ? "Registering..." : "Register"}
             </button>
           </form>
 
@@ -122,7 +192,7 @@ export default function Register() {
           </div>
           <h2 className="text-2xl text-black">
             Make your work easier and organized<br />
-            with <span className="font-bold">Aminuteman's App</span>
+            with <span className="font-bold">Aminuteman App</span>
           </h2>
         </div>
       </div>
